@@ -1,51 +1,47 @@
 import json
 from urllib.request import urlopen
-import os
-import re
 import pickle
-from time import sleep
+import os
 
-ids = []
-
-
+# URL de la API para obtener los memes
 url = 'https://tg.i-c-a.su/json/programmerjokes/1?limit=100'
 r = urlopen(url)
-data = json.loads(str(r.read().decode("utf-8")))
+data = json.loads(r.read().decode("utf-8"))
 
-count = 0
+# Leer la lista de IDs ya descargados
+try:
+    with open('ids.data', 'rb') as filehandle:
+        ids = pickle.load(filehandle)
+except FileNotFoundError:
+    ids = []
 
-with open('ids.data', 'rb') as filehandle:
-    # read the data as binary data stream
-    ids = pickle.load(filehandle)
+# Ruta del directorio para guardar los memes
+directory = 'memes/3/'
 
+# Crear el directorio si no existe
+if not os.path.exists(directory):
+    os.makedirs(directory)
 
-for message in data['messages']:
-    #print(message['id'])
-    id = message['id']
+# Procesar solo el primer meme
+message = data['messages'][0]
+id = message['id']
 
-    # check if already in the database
-    if int(id) in ids:
-        print(str(id)+': already in the database')
-        continue
+# Comprobar si el meme ya está descargado
+if int(id) not in ids:
     try:
-        # download image
-        img_url = 'https://tg.i-c-a.su/media/programmerjokes/'+str(id)
+        # Descargar la imagen del meme
+        img_url = 'https://tg.i-c-a.su/media/programmerjokes/' + str(id)
         response = urlopen(img_url)
-        img_file = open('memes/3/'+str(id)+'.png','wb')
-        img_file.write(response.read())
-        img_file.close()
-        print(str(id)+': downloaded')
-        sleep(2)
-        ids.append(int(message['id']))
-        count = count + 1
+        with open(os.path.join(directory, str(id) + '.png'), 'wb') as img_file:
+            img_file.write(response.read())
+        print(str(id) + ': downloaded')
 
-    except:
-        print("Error while downloading:"+str(id))
+        # Agregar el ID a la lista y actualizar el archivo
+        ids.append(int(id))
+        with open('ids.data', 'wb') as filehandle:
+            pickle.dump(sorted(ids), filehandle)
 
-
-with open('ids.data', 'wb') as filehandle:
-    # store the data as binary data stream
-    pickle.dump(sorted(ids), filehandle)
-
-print("count: ",str(count))
-
+    except Exception as e:
+        print("Error while downloading:", id, "; Error:", e)
+else:
+    print(str(id) + ': already in the database')
